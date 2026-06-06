@@ -116,10 +116,9 @@ function applyInput(p, inp) {
 
   if (p.hurtTimer > 0) { p.hurtTimer--; return; }
 
-  const inAttack = p.action === 'attack' || p.action === 'special';
+  let inAttack = p.action === 'attack' || p.action === 'special';
   const su = p.action === 'special' ? SPEC_STARTUP : ATK_STARTUP;
   const ac = p.action === 'special' ? SPEC_ACTIVE : ATK_ACTIVE;
-  const rc = p.action === 'special' ? SPEC_RECOVERY : ATK_RECOVERY;
   const inRecovery = inAttack && p.actionFrame >= su + ac;
 
   if (!inRecovery) {
@@ -142,11 +141,6 @@ function applyInput(p, inp) {
   const attackPressed  = (inp.attackSeq  || 0) > prevA;
   const specialPressed = (inp.specialSeq || 0) > prevS;
 
-  if (p.id === myId) {
-    // Host's own seqs are always current; compare via keys directly (edge detect in key handler)
-    // Use the same seq mechanism for consistency
-  }
-
   if (jumpPressed) {
     if (p.onGround) {
       p.vy = JUMP_F * ch.jump;
@@ -160,8 +154,8 @@ function applyInput(p, inp) {
     }
   }
 
-  if (!inAttack && attackPressed)  { startAttack(p, false); }
-  if (!inAttack && specialPressed) { startAttack(p, true);  }
+  if (!inAttack && attackPressed)  { startAttack(p, false); inAttack = true; }
+  if (!inAttack && specialPressed) { startAttack(p, true);  inAttack = true; }
 
   // Advance attack frames
   if (inAttack) {
