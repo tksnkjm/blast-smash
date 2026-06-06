@@ -48,13 +48,12 @@ const STAGES = [
 
 const SPAWNS = [[200,260],[600,260],[300,160],[500,160]];
 
-// Fill this in with your Firebase project settings
 const FIREBASE_CONFIG = {
-  apiKey:            'YOUR_API_KEY',
-  authDomain:        'YOUR_PROJECT_ID.firebaseapp.com',
-  databaseURL:       'https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com',
-  projectId:         'YOUR_PROJECT_ID',
-  storageBucket:     'YOUR_PROJECT_ID.appspot.com',
-  messagingSenderId: 'YOUR_SENDER_ID',
-  appId:             'YOUR_APP_ID'
+  apiKey:            'AIzaSyAhv0QN06Mt9i1vAK3D4istWkD24AYNO_M',
+  authDomain:        'tksnkjm-games-fc680.firebaseapp.com',
+  databaseURL:       'https://tksnkjm-games-fc680-default-rtdb.asia-southeast1.firebasedatabase.app',
+  projectId:         'tksnkjm-games-fc680',
+  storageBucket:     'tksnkjm-games-fc680.firebasestorage.app',
+  messagingSenderId: '881316603081',
+  appId:             '1:881316603081:web:628385cd6499124a925918'
 };
