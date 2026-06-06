@@ -373,14 +373,14 @@ function applyHit(a, d, isSpec) {
   const dmg = isSpec ? 13 : 7;
   d.damage += dmg;
 
-  const kbBase = isSpec ? 9 : 5;
-  const kb = (kbBase + d.damage * 0.055) / ch.weight;
+  const kbBase = isSpec ? 12 : 7;
+  const kb = (kbBase + d.damage * 0.10) / ch.weight;
   const dx = d.x - a.x;
   const dy = (d.y - PH * 0.5) - (a.y - PH * 0.5);
   const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-  d.vx = (dx / dist) * kb * 1.6;
-  d.vy = (dy / dist) * kb - (isSpec ? 1.5 : 0);
-  if (d.vy > -1.5) d.vy = -1.5;
+  d.vx = (dx / dist) * kb * 2.2;
+  d.vy = (dy / dist) * kb - (isSpec ? 3.0 : 1.0);
+  if (d.vy > -2.0) d.vy = -2.0;
 
   d.hurtTimer = Math.min(HITSTUN_BASE + Math.floor(kb * 2.5), 45);
   d.onGround = false;
@@ -431,6 +431,15 @@ function startSoloGame() {
   showScreen('game');
   document.getElementById('game-ui').classList.add('on');
   sfx.start();
+
+  // Drive countdown 3→2→1→GO→hidden
+  let cdN = 3;
+  const cdIv = setInterval(() => {
+    if (!gState) { clearInterval(cdIv); return; }
+    gState.countdown = cdN;
+    cdN--;
+    if (cdN < 0) { gState.countdown = 0; clearInterval(cdIv); }
+  }, 1000);
 }
 
 function _makeBotState(slot) {
