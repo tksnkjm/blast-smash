@@ -9,7 +9,15 @@ function getScale() {
 
 function getOffset() {
   const s = getScale();
-  return { x: (canvas.width - CANVAS_W * s) / 2, y: (canvas.height - CANVAS_H * s) / 2 };
+  const x = (canvas.width - CANVAS_W * s) / 2;
+  let y;
+  if (canvas.height > canvas.width) {
+    // Portrait: anchor playfield near the top, leaving the lower area free for the thumb
+    y = Math.min((canvas.height - CANVAS_H * s) / 2, Math.round(canvas.height * 0.07));
+  } else {
+    y = (canvas.height - CANVAS_H * s) / 2;
+  }
+  return { x, y };
 }
 
 function renderGame() {

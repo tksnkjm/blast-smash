@@ -120,38 +120,34 @@
     /* ── Game UI ── */
     #game-ui {
       position: fixed; inset: 0; pointer-events: none; z-index: 5; display: none;
+      touch-action: none;
     }
-    #game-ui.on { display: block; }
+    #game-ui.on { display: block; pointer-events: all; }
 
-    #dpad {
-      position: absolute; bottom: max(20px, env(safe-area-inset-bottom)); left: 14px;
-      display: flex; gap: 5px; pointer-events: all;
+    /* ── ぷにこん floating joystick ── */
+    .puni { position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 5; pointer-events: none; display: none; }
+    .puni.on { display: block; }
+    .puni-base {
+      position: absolute; left: 0; top: 0; width: 124px; height: 124px;
+      transform: translate(-50%, -50%); border-radius: 50%;
+      background: rgba(255,255,255,0.07);
+      border: 2px solid rgba(255,255,255,0.22);
+      box-shadow: 0 0 24px rgba(255,70,102,0.18) inset;
     }
-    .dpad-btn {
-      width: 68px; height: 88px;
-      background: rgba(255,255,255,0.09); border: 2px solid rgba(255,255,255,0.2);
-      border-radius: 10px; display: flex; align-items: center; justify-content: center;
-      font-size: 24px; color: rgba(255,255,255,0.55); touch-action: none;
+    .puni-knob {
+      position: absolute; left: 0; top: 0; width: 58px; height: 58px;
+      transform: translate(-50%, -50%); border-radius: 50%;
+      background: radial-gradient(circle at 36% 30%, rgba(255,255,255,0.75), rgba(255,90,140,0.55) 70%);
+      border: 2px solid rgba(255,255,255,0.7);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.4);
     }
-    .dpad-btn.active { background: rgba(255,255,255,0.22); border-color: rgba(255,255,255,0.55); }
-
-    #action-btns {
-      position: absolute; bottom: max(20px, env(safe-area-inset-bottom)); right: 14px;
-      display: flex; flex-direction: column; gap: 8px;
-      align-items: flex-end; pointer-events: all;
+    #touch-hint {
+      position: fixed; left: 50%; bottom: max(12px, env(safe-area-inset-bottom));
+      transform: translateX(-50%); z-index: 5; pointer-events: none;
+      color: rgba(255,255,255,0.42); font-size: 11px; letter-spacing: 1px;
+      font-family: 'Courier New', monospace; white-space: nowrap;
+      transition: opacity 0.4s; text-align: center;
     }
-    .act-row { display: flex; gap: 8px; }
-    .act-btn {
-      width: 64px; height: 64px; border-radius: 50%;
-      background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.25);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 11px; font-weight: bold; color: rgba(255,255,255,0.65);
-      font-family: 'Courier New', monospace; touch-action: none; text-align: center;
-    }
-    .act-btn.active { background: rgba(255,210,0,0.28); border-color: rgba(255,210,0,0.7); }
-    #btn-jump    { background: rgba(60,120,255,0.22); border-color: rgba(100,160,255,0.45); }
-    #btn-attack  { background: rgba(255,70,70,0.22);  border-color: rgba(255,110,110,0.45); }
-    #btn-special { background: rgba(180,80,255,0.22); border-color: rgba(210,120,255,0.45); }
 
     /* ── Damage HUD ── */
     #damage-ui {
@@ -203,13 +199,6 @@
       #solo-leaderboard { max-width: 100%; }
       .lb-row { padding: 3px 6px; }
       .lb-nick, .lb-score { font-size: 11px; }
-
-      /* Smaller controls in landscape */
-      .dpad-btn { width: 58px; height: 70px; font-size: 20px; }
-      #dpad { gap: 4px; }
-      .act-btn { width: 54px; height: 54px; font-size: 9px; }
-      #action-btns { gap: 6px; }
-      .act-row { gap: 6px; }
       .dmg-pct { font-size: 15px; }
       .dmg-card { min-width: 46px; padding: 3px 7px; }
     }
@@ -222,21 +211,13 @@
 <!-- Damage / Stock HUD (visible during game) -->
 <div id="damage-ui"></div>
 
-<!-- Mobile Controls -->
+<!-- Mobile Controls — one-thumb floating joystick (ぷにこん) -->
 <div id="game-ui">
-  <div id="dpad">
-    <div class="dpad-btn" id="btn-left">◀</div>
-    <div class="dpad-btn" id="btn-right">▶</div>
+  <div id="puni" class="puni">
+    <div class="puni-base"></div>
+    <div id="puni-knob" class="puni-knob"></div>
   </div>
-  <div id="action-btns">
-    <div class="act-row">
-      <div class="act-btn" id="btn-jump">JUMP</div>
-    </div>
-    <div class="act-row">
-      <div class="act-btn" id="btn-special">SPEC</div>
-      <div class="act-btn" id="btn-attack">ATK</div>
-    </div>
-  </div>
+  <div id="touch-hint">ドラッグ＝移動　上＝ジャンプ　下＝必殺　タップ＝攻撃</div>
 </div>
 
 <!-- ── Title ── -->
@@ -246,26 +227,26 @@
   <button class="btn" onclick="showLobby()">PLAY</button>
   <button class="btn" style="background:#cc6600" onclick="showSoloScreen()">SOLO</button>
   <button class="btn secondary" onclick="showHowTo()">HOW TO PLAY</button>
-  <div style="color:#334;font-size:10px;font-family:monospace;margin-top:4px">v1.0.0</div>
+  <div style="color:#334;font-size:10px;font-family:monospace;margin-top:4px">v1.2.0</div>
 </div>
 
 <!-- ── How To Play ── -->
 <div id="screen-howto" class="screen off">
   <h2>HOW TO PLAY</h2>
   <div class="howto-body">
-    <p>🎮 合言葉を友達と共有してルームに入室</p>
-    <p>⚔️ 最大4人で同時対戦</p>
+    <p>📱 スマホを縦向きで、親指1本で操作</p>
+    <p>👆 画面のどこでも触れると操作スティックが出現</p>
     <p>💥 相手を吹き飛ばしてステージ外へ！</p>
-    <p>🏆 全員のストックを0にした最後の1人が勝利</p>
     <br>
     <table>
-      <tr><td>◀ ▶ / A D</td><td>移動</td></tr>
-      <tr><td>JUMP / Z / ↑</td><td>ジャンプ（2段）</td></tr>
-      <tr><td>ATK / X</td><td>通常攻撃</td></tr>
-      <tr><td>SPEC / C</td><td>必殺技（強力）</td></tr>
+      <tr><td>← → ドラッグ</td><td>移動</td></tr>
+      <tr><td>↑ フリック</td><td>ジャンプ（2段）</td></tr>
+      <tr><td>↓ フリック</td><td>必殺技（強力）</td></tr>
+      <tr><td>タップ</td><td>通常攻撃</td></tr>
     </table>
     <br>
     <p style="color:#445;font-size:11px">ダメージ% が高いほど吹き飛びやすい</p>
+    <p style="color:#445;font-size:11px">PC: A/D・Z・X・C キーでも操作可</p>
   </div>
   <button class="btn secondary" onclick="showScreen('title')">BACK</button>
 </div>
@@ -323,7 +304,7 @@
 <!-- ── Portrait hint ── -->
 <div id="rotate-msg">
   <div class="ri">📱</div>
-  <p>横向きにしてプレイしてください</p>
+  <p>縦向きにしてプレイしてください</p>
 </div>
 
 <!-- Firebase Compat SDK -->

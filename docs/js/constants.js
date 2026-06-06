@@ -1,4 +1,4 @@
-const VERSION = '1.0.0';
+const VERSION = '1.2.0';
 
 const CANVAS_W = 800;
 const CANVAS_H = 500;
