@@ -22,6 +22,7 @@
       position: fixed; inset: 0; z-index: 10;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       background: rgba(4,4,18,0.88); gap: 14px; padding: 24px 20px;
+      overflow-y: auto;
     }
     .screen.off { display: none !important; }
 
@@ -146,7 +147,7 @@
 
     /* ── Damage HUD ── */
     #damage-ui {
-      position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+      position: fixed; top: 0; left: 50%; transform: translateX(-50%);
       display: flex; gap: 7px; padding: 6px 10px;
       z-index: 6; pointer-events: none;
     }
@@ -170,6 +171,37 @@
     #rotate-msg p    { color: #778; font-size: 15px; font-family: 'Courier New', monospace; }
 
     h2 { color: #99a; font-size: 12px; letter-spacing: 4px; text-transform: uppercase; font-family: 'Courier New', monospace; }
+
+    /* ── Landscape compact layout ── */
+    @media (orientation: landscape) and (max-height: 520px) {
+      .screen { gap: 7px; padding: 10px 16px; justify-content: flex-start; padding-top: 10px; }
+      .logo { font-size: clamp(24px, 6vh, 40px); }
+      .subtitle { font-size: 10px; }
+      h2 { font-size: 10px; letter-spacing: 3px; }
+      .section-label { font-size: 9px; }
+      .btn { padding: 9px 22px; font-size: 14px; min-width: 150px; }
+      input[type=text] { padding: 8px 12px; font-size: 15px; max-width: 240px; }
+      #player-slots { grid-template-columns: repeat(4, 1fr); max-width: 100%; gap: 6px; }
+      .slot { min-height: 58px; padding: 6px 4px; }
+      .slot-nick { font-size: 11px; }
+      .slot-sub  { font-size: 9px; }
+      #room-keyword-display { font-size: 16px; letter-spacing: 4px; }
+      #char-select-row { gap: 6px; }
+      .char-opt { width: 52px; height: 52px; }
+      .char-emoji { font-size: 20px; }
+      .char-lbl   { font-size: 7px; }
+      .howto-body { font-size: 11px; line-height: 1.6; }
+      #result-winner { font-size: clamp(20px, 5vh, 36px); }
+
+      /* Smaller controls in landscape */
+      .dpad-btn { width: 58px; height: 70px; font-size: 20px; }
+      #dpad { gap: 4px; }
+      .act-btn { width: 54px; height: 54px; font-size: 9px; }
+      #action-btns { gap: 6px; }
+      .act-row { gap: 6px; }
+      .dmg-pct { font-size: 15px; }
+      .dmg-card { min-width: 46px; padding: 3px 7px; }
+    }
   </style>
 </head>
 <body>
