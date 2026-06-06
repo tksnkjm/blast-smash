@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#060618">
+  <title>BLAST SMASH</title>
+  <style>
+    *, *::before, *::after {
+      margin: 0; padding: 0; box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none; -webkit-user-select: none;
+    }
+    html, body { width: 100%; height: 100%; background: #060618; overflow: hidden; touch-action: none; }
+
+    #c { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: block; }
+
+    /* ── Screens ── */
+    .screen {
+      position: fixed; inset: 0; z-index: 10;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: rgba(4,4,18,0.88); gap: 14px; padding: 24px 20px;
+    }
+    .screen.off { display: none !important; }
+
+    /* ── Typography ── */
+    .logo {
+      font-family: Impact, 'Arial Black', sans-serif;
+      font-size: clamp(40px, 11vw, 88px);
+      letter-spacing: 4px; text-align: center; line-height: 1;
+      background: linear-gradient(135deg, #ff4466 0%, #ff8800 50%, #ffcc00 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .subtitle { color: #666; font-size: 12px; letter-spacing: 5px; text-transform: uppercase; font-family: 'Courier New', monospace; }
+    .section-label { color: #556; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; font-family: 'Courier New', monospace; }
+
+    /* ── Buttons ── */
+    .btn {
+      background: #ff4466; color: #fff; border: none;
+      padding: 13px 32px; font-size: 17px;
+      font-family: 'Courier New', monospace; font-weight: bold;
+      cursor: pointer; border-radius: 4px; letter-spacing: 2px;
+      min-width: 200px; text-align: center;
+      transition: filter 0.08s; display: inline-block;
+    }
+    .btn:active { filter: brightness(0.78); }
+    .btn.secondary { background: #1e1e36; border: 2px solid #334; }
+    .btn.green     { background: #22aa44; }
+    .btn.orange    { background: #cc6600; }
+
+    /* ── Inputs ── */
+    input[type=text] {
+      background: #0e0e22; border: 2px solid #334; color: #fff;
+      padding: 12px 16px; font-size: 18px;
+      font-family: 'Courier New', monospace; border-radius: 4px;
+      width: 100%; max-width: 300px; text-align: center; outline: none;
+    }
+    input[type=text]:focus { border-color: #ff4466; }
+
+    /* ── Room slots ── */
+    #player-slots {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 9px;
+      width: 100%; max-width: 380px;
+    }
+    .slot {
+      background: #0d0d22; border: 2px solid #223;
+      border-radius: 6px; padding: 10px 8px;
+      text-align: center; min-height: 76px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    }
+    .slot-nick { font-size: 13px; font-weight: bold; font-family: 'Courier New', monospace; }
+    .slot-sub  { font-size: 11px; color: #556; font-family: 'Courier New', monospace; }
+
+    #room-keyword-display {
+      font-size: 22px; color: #ffcc44; letter-spacing: 6px;
+      font-family: 'Courier New', monospace; text-align: center;
+    }
+
+    /* ── Char select ── */
+    #char-select-row { display: flex; gap: 9px; flex-wrap: wrap; justify-content: center; }
+    .char-opt {
+      width: 68px; height: 68px; border-radius: 8px; border: 3px solid #334;
+      cursor: pointer; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 3px;
+      transition: border-color 0.1s;
+    }
+    .char-opt.sel { border-width: 3px; }
+    .char-emoji { font-size: 26px; }
+    .char-lbl   { font-size: 8px; color: #aaa; letter-spacing: 1px; font-family: 'Courier New', monospace; }
+
+    /* ── Messages ── */
+    .ok-msg  { color: #888; font-size: 12px; font-family: 'Courier New', monospace; text-align: center; }
+    .err-msg { color: #ff4466; font-size: 12px; font-family: 'Courier New', monospace; text-align: center; }
+
+    /* ── Result ── */
+    #result-winner { font-size: clamp(26px, 7vw, 56px); font-weight: bold; text-align: center; font-family: Impact, sans-serif; }
+    #result-rank   { font-size: 14px; text-align: center; font-family: 'Courier New', monospace; display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+
+    /* ── How To ── */
+    .howto-body {
+      max-width: 340px; color: #99a; font-size: 13px; line-height: 1.9;
+      text-align: center; font-family: 'Courier New', monospace;
+    }
+    .howto-body table { width: 100%; border-collapse: collapse; }
+    .howto-body td { padding: 3px 8px; border-bottom: 1px solid #223; }
+    .howto-body td:first-child { color: #ffcc44; text-align: right; width: 50%; }
+
+    /* ── Game UI ── */
+    #game-ui {
+      position: fixed; inset: 0; pointer-events: none; z-index: 5; display: none;
+    }
+    #game-ui.on { display: block; }
+
+    #dpad {
+      position: absolute; bottom: max(20px, env(safe-area-inset-bottom)); left: 14px;
+      display: flex; gap: 5px; pointer-events: all;
+    }
+    .dpad-btn {
+      width: 68px; height: 88px;
+      background: rgba(255,255,255,0.09); border: 2px solid rgba(255,255,255,0.2);
+      border-radius: 10px; display: flex; align-items: center; justify-content: center;
+      font-size: 24px; color: rgba(255,255,255,0.55); touch-action: none;
+    }
+    .dpad-btn.active { background: rgba(255,255,255,0.22); border-color: rgba(255,255,255,0.55); }
+
+    #action-btns {
+      position: absolute; bottom: max(20px, env(safe-area-inset-bottom)); right: 14px;
+      display: flex; flex-direction: column; gap: 8px;
+      align-items: flex-end; pointer-events: all;
+    }
+    .act-row { display: flex; gap: 8px; }
+    .act-btn {
+      width: 64px; height: 64px; border-radius: 50%;
+      background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.25);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: bold; color: rgba(255,255,255,0.65);
+      font-family: 'Courier New', monospace; touch-action: none; text-align: center;
+    }
+    .act-btn.active { background: rgba(255,210,0,0.28); border-color: rgba(255,210,0,0.7); }
+    #btn-jump    { background: rgba(60,120,255,0.22); border-color: rgba(100,160,255,0.45); }
+    #btn-attack  { background: rgba(255,70,70,0.22);  border-color: rgba(255,110,110,0.45); }
+    #btn-special { background: rgba(180,80,255,0.22); border-color: rgba(210,120,255,0.45); }
+
+    /* ── Damage HUD ── */
+    #damage-ui {
+      position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 7px; padding: 6px 10px;
+      z-index: 6; pointer-events: none;
+    }
+    .dmg-card {
+      background: rgba(0,0,0,0.72); border: 2px solid #223;
+      border-radius: 6px; padding: 4px 10px;
+      text-align: center; min-width: 58px;
+      font-family: 'Courier New', monospace;
+    }
+    .dmg-card.me { border-color: #ff4466; }
+    .dmg-nick  { font-size: 9px; color: #667; }
+    .dmg-pct   { font-size: 19px; font-weight: bold; }
+    .dmg-stocks{ font-size: 10px; color: #ffcc44; }
+
+    /* ── Portrait hint ── */
+    #rotate-msg {
+      display: none; position: fixed; inset: 0; background: #000; z-index: 100;
+      flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; padding: 24px;
+    }
+    #rotate-msg .ri  { font-size: 60px; }
+    #rotate-msg p    { color: #778; font-size: 15px; font-family: 'Courier New', monospace; }
+
+    h2 { color: #99a; font-size: 12px; letter-spacing: 4px; text-transform: uppercase; font-family: 'Courier New', monospace; }
+  </style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+
+<!-- Damage / Stock HUD (visible during game) -->
+<div id="damage-ui"></div>
+
+<!-- Mobile Controls -->
+<div id="game-ui">
+  <div id="dpad">
+    <div class="dpad-btn" id="btn-left">◀</div>
+    <div class="dpad-btn" id="btn-right">▶</div>
+  </div>
+  <div id="action-btns">
+    <div class="act-row">
+      <div class="act-btn" id="btn-jump">JUMP</div>
+    </div>
+    <div class="act-row">
+      <div class="act-btn" id="btn-special">SPEC</div>
+      <div class="act-btn" id="btn-attack">ATK</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Title ── -->
+<div id="screen-title" class="screen">
+  <div class="logo">BLAST<br>SMASH</div>
+  <div class="subtitle">4 PLAYER BATTLE</div>
+  <button class="btn" onclick="showLobby()">PLAY</button>
+  <button class="btn secondary" onclick="showHowTo()">HOW TO PLAY</button>
+  <div style="color:#334;font-size:10px;font-family:monospace;margin-top:4px">v1.0.0</div>
+</div>
+
+<!-- ── How To Play ── -->
+<div id="screen-howto" class="screen off">
+  <h2>HOW TO PLAY</h2>
+  <div class="howto-body">
+    <p>🎮 合言葉を友達と共有してルームに入室</p>
+    <p>⚔️ 最大4人で同時対戦</p>
+    <p>💥 相手を吹き飛ばしてステージ外へ！</p>
+    <p>🏆 全員のストックを0にした最後の1人が勝利</p>
+    <br>
+    <table>
+      <tr><td>◀ ▶ / A D</td><td>移動</td></tr>
+      <tr><td>JUMP / Z / ↑</td><td>ジャンプ（2段）</td></tr>
+      <tr><td>ATK / X</td><td>通常攻撃</td></tr>
+      <tr><td>SPEC / C</td><td>必殺技（強力）</td></tr>
+    </table>
+    <br>
+    <p style="color:#445;font-size:11px">ダメージ% が高いほど吹き飛びやすい</p>
+  </div>
+  <button class="btn secondary" onclick="showScreen('title')">BACK</button>
+</div>
+
+<!-- ── Lobby ── -->
+<div id="screen-lobby" class="screen off">
+  <h2>PLAYER SETUP</h2>
+  <div class="section-label">ニックネーム</div>
+  <input type="text" id="input-nick" placeholder="あなたの名前" maxlength="10" autocomplete="off" spellcheck="false">
+  <div class="section-label">合言葉（ルームID）</div>
+  <input type="text" id="input-keyword" placeholder="例: SAKURA" maxlength="20" autocomplete="off" spellcheck="false" style="text-transform:uppercase">
+  <div class="section-label">キャラクター</div>
+  <div id="char-select-row"></div>
+  <button class="btn" onclick="joinRoom()">ルームに入る</button>
+  <button class="btn secondary" onclick="showScreen('title')">BACK</button>
+  <div id="lobby-msg" class="ok-msg"></div>
+</div>
+
+<!-- ── Waiting Room ── -->
+<div id="screen-room" class="screen off">
+  <h2>WAITING ROOM</h2>
+  <div class="section-label">合言葉</div>
+  <div id="room-keyword-display">—</div>
+  <div id="player-slots"></div>
+  <div id="room-status" class="ok-msg">他のプレイヤーを待っています...</div>
+  <button class="btn green" id="btn-ready" onclick="toggleReady()">READY</button>
+  <button class="btn orange" id="btn-host-start" style="display:none" onclick="hostStartGame()">▶ START GAME</button>
+  <button class="btn secondary" onclick="leaveRoom()">退出</button>
+</div>
+
+<!-- ── Result ── -->
+<div id="screen-result" class="screen off">
+  <h2>RESULT</h2>
+  <div id="result-winner"></div>
+  <div id="result-rank"></div>
+  <button class="btn" onclick="returnToLobby()">もう一度</button>
+  <button class="btn secondary" onclick="showScreen('title')">タイトルへ</button>
+</div>
+
+<!-- ── Portrait hint ── -->
+<div id="rotate-msg">
+  <div class="ri">📱</div>
+  <p>横向きにしてプレイしてください</p>
+</div>
+
+<!-- Firebase Compat SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<!-- Game scripts (load order matters) -->
+<script src="js/constants.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/state.js"></script>
+<script src="js/render.js"></script>
+<script src="js/game.js"></script>
+<script src="js/firebase.js"></script>
+
+</body>
+</html>

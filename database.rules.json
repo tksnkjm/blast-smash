@@ -1,0 +1,15 @@
+{
+  "rules": {
+    "rooms": {
+      "$keyword": {
+        ".read": true,
+        ".write": true,
+        "players": {
+          "$playerId": {
+            ".write": "auth == null || auth.uid == $playerId || !data.exists()"
+          }
+        }
+      }
+    }
+  }
+}
