@@ -99,6 +99,14 @@
     /* ── Result ── */
     #result-winner { font-size: clamp(26px, 7vw, 56px); font-weight: bold; text-align: center; font-family: Impact, sans-serif; }
     #result-rank   { font-size: 14px; text-align: center; font-family: 'Courier New', monospace; display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+    #result-sub    { font-size: 13px; text-align: center; font-family: 'Courier New', monospace; color: #aaa; margin-top: 2px; }
+
+    /* ── Leaderboard ── */
+    #solo-leaderboard { width: 100%; max-width: 300px; }
+    .lb-row   { display: flex; gap: 8px; align-items: center; padding: 5px 8px; border-bottom: 1px solid #1a1a30; font-family: 'Courier New', monospace; width: 100%; }
+    .lb-rank  { width: 28px; text-align: center; font-size: 13px; flex-shrink: 0; }
+    .lb-nick  { flex: 1; font-size: 12px; color: #99a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lb-score { font-size: 14px; font-weight: bold; color: #ffcc44; flex-shrink: 0; }
 
     /* ── How To ── */
     .howto-body {
@@ -192,6 +200,9 @@
       .char-lbl   { font-size: 7px; }
       .howto-body { font-size: 11px; line-height: 1.6; }
       #result-winner { font-size: clamp(20px, 5vh, 36px); }
+      #solo-leaderboard { max-width: 100%; }
+      .lb-row { padding: 3px 6px; }
+      .lb-nick, .lb-score { font-size: 11px; }
 
       /* Smaller controls in landscape */
       .dpad-btn { width: 58px; height: 70px; font-size: 20px; }
@@ -233,6 +244,7 @@
   <div class="logo">BLAST<br>SMASH</div>
   <div class="subtitle">4 PLAYER BATTLE</div>
   <button class="btn" onclick="showLobby()">PLAY</button>
+  <button class="btn" style="background:#cc6600" onclick="showSoloScreen()">SOLO</button>
   <button class="btn secondary" onclick="showHowTo()">HOW TO PLAY</button>
   <div style="color:#334;font-size:10px;font-family:monospace;margin-top:4px">v1.0.0</div>
 </div>
@@ -284,11 +296,26 @@
   <button class="btn secondary" onclick="leaveRoom()">退出</button>
 </div>
 
+<!-- ── Solo ── -->
+<div id="screen-solo" class="screen off">
+  <h2>SOLO MODE</h2>
+  <div class="section-label">ニックネーム</div>
+  <input type="text" id="solo-nick" placeholder="あなたの名前" maxlength="10" autocomplete="off" spellcheck="false">
+  <div class="section-label">キャラクター</div>
+  <div id="solo-char-row"></div>
+  <button class="btn green" onclick="beginSoloGame()">▶ START</button>
+  <button class="btn secondary" onclick="showScreen('title')">BACK</button>
+  <div id="solo-msg" class="err-msg"></div>
+  <div class="section-label" style="margin-top:8px">RANKING</div>
+  <div id="solo-leaderboard"></div>
+</div>
+
 <!-- ── Result ── -->
 <div id="screen-result" class="screen off">
   <h2>RESULT</h2>
   <div id="result-winner"></div>
   <div id="result-rank"></div>
+  <div id="result-sub"></div>
   <button class="btn" onclick="returnToLobby()">もう一度</button>
   <button class="btn secondary" onclick="showScreen('title')">タイトルへ</button>
 </div>

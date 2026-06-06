@@ -38,6 +38,12 @@ const CHARS = [
 
 const SLOT_COLORS = ['#ff4466', '#44aaff', '#44dd66', '#ffcc44'];
 
+const WAVE_INTERVAL  = 1200; // frames per wave (~20s)
+const BOT_RESPAWN    = 150;  // frames before bot respawns after KO
+const SOLO_KO_SCORE  = 150;  // score per bot KO
+const SOLO_TIME_RATE = 8;    // score per second survived
+const LB_SIZE        = 10;   // leaderboard entries to display
+
 // [x, y, w, h, isMain]
 const STAGES = [
   [80,  390, 640, 18, true],
