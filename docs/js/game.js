@@ -38,29 +38,88 @@ function setupKeyboard() {
   document.addEventListener('keyup', e => up(e.code));
 }
 
+// ── ぷにこん: one-thumb floating virtual joystick ───────────────
+// Drag left/right = move, flick up = jump (flick again = double jump),
+// flick down = special, quick tap = attack. All doable with a single thumb.
 function setupTouchControls() {
-  const map = {
-    'btn-left':    () => { keys.left = true; },
-    'btn-right':   () => { keys.right = true; },
-    'btn-jump':    () => { if (!keys.jump) inputSeq.jump++; keys.jump = true; },
-    'btn-attack':  () => { if (!keys.attack) inputSeq.attack++; keys.attack = true; },
-    'btn-special': () => { if (!keys.special) inputSeq.special++; keys.special = true; },
-  };
-  const releaseMap = {
-    'btn-left':    () => { keys.left = false; },
-    'btn-right':   () => { keys.right = false; },
-    'btn-jump':    () => { keys.jump = false; },
-    'btn-attack':  () => { keys.attack = false; },
-    'btn-special': () => { keys.special = false; },
-  };
-  Object.keys(map).forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.addEventListener('pointerdown', e => { e.preventDefault(); el.classList.add('active'); map[id](); }, { passive: false });
-    ['pointerup','pointerleave','pointercancel'].forEach(ev =>
-      el.addEventListener(ev, () => { el.classList.remove('active'); releaseMap[id](); })
-    );
-  });
+  const surf = document.getElementById('game-ui');
+  const puni = document.getElementById('puni');
+  const knob = document.getElementById('puni-knob');
+  const hint = document.getElementById('touch-hint');
+  if (!surf || !puni || !knob) return;
+
+  const RADIUS     = 58;  // visual knob clamp radius (px)
+  const DEAD       = 16;  // horizontal deadzone before moving
+  const JUMP_UP    = 36;  // upward distance that triggers a jump
+  const JUMP_REARM = 18;  // knob must return within this to re-arm jump
+  const SPEC_DOWN  = 50;  // downward distance that triggers special
+  const TAP_MOVE   = 18;  // max movement to still count as a tap
+  const TAP_MS     = 240; // max duration to still count as a tap
+
+  let active = false, pid = null;
+  let ox = 0, oy = 0, startT = 0, maxMove = 0;
+  let jumpArmed = true, specialFired = false;
+
+  function clearMove() { keys.left = false; keys.right = false; }
+
+  function reset() {
+    active = false; pid = null;
+    clearMove();
+    puni.classList.remove('on');
+  }
+
+  surf.addEventListener('pointerdown', e => {
+    if (active || currentScreen !== 'game') return;
+    active = true; pid = e.pointerId;
+    ox = e.clientX; oy = e.clientY;
+    startT = performance.now(); maxMove = 0;
+    jumpArmed = true; specialFired = false;
+    clearMove();
+    puni.style.left = ox + 'px';
+    puni.style.top  = oy + 'px';
+    puni.classList.add('on');
+    knob.style.transform = 'translate(-50%, -50%)';
+    if (hint) hint.style.opacity = '0';
+    try { surf.setPointerCapture(e.pointerId); } catch (_) {}
+    e.preventDefault();
+  }, { passive: false });
+
+  surf.addEventListener('pointermove', e => {
+    if (!active || e.pointerId !== pid) return;
+    const dx = e.clientX - ox;
+    const dy = e.clientY - oy;
+    const dist = Math.hypot(dx, dy);
+    if (dist > maxMove) maxMove = dist;
+
+    // Move the visual knob (clamped to radius)
+    const cl  = Math.min(dist, RADIUS);
+    const ang = Math.atan2(dy, dx);
+    const kx  = Math.cos(ang) * cl;
+    const ky  = Math.sin(ang) * cl;
+    knob.style.transform = `translate(calc(-50% + ${kx}px), calc(-50% + ${ky}px))`;
+
+    // Horizontal movement
+    keys.left  = dx < -DEAD;
+    keys.right = dx >  DEAD;
+
+    // Jump on upward flick (edge-detected so each flick = one jump)
+    if (dy < -JUMP_UP && jumpArmed) { inputSeq.jump++; jumpArmed = false; }
+    if (dy > -JUMP_REARM) jumpArmed = true;
+
+    // Special on downward flick (once per touch)
+    if (dy > SPEC_DOWN && !specialFired) { inputSeq.special++; specialFired = true; }
+
+    e.preventDefault();
+  }, { passive: false });
+
+  function end(e) {
+    if (!active || e.pointerId !== pid) return;
+    const dt = performance.now() - startT;
+    if (maxMove < TAP_MOVE && dt < TAP_MS) inputSeq.attack++; // quick tap = attack
+    reset();
+  }
+  surf.addEventListener('pointerup', end);
+  surf.addEventListener('pointercancel', end);
 }
 
 // ── Game Loop ───────────────────────────────────────────────────
@@ -510,9 +569,10 @@ function showLobbyMsg(msg, isErr) {
 }
 
 function checkOrientation() {
+  // Portrait one-thumb play: ask the player to hold the phone upright if in landscape.
   const el = document.getElementById('rotate-msg');
   if (!el) return;
-  el.style.display = window.innerHeight > window.innerWidth * 1.1 ? 'flex' : 'none';
+  el.style.display = window.innerWidth > window.innerHeight * 1.1 ? 'flex' : 'none';
 }
 
 function returnToLobby() {
