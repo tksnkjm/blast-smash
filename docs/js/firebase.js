@@ -1,5 +1,4 @@
 // Firebase Realtime Database integration
-// Host-authoritative: host writes gState at 20Hz, clients write inputs at 30Hz
 
 let _db = null;
 
@@ -7,7 +6,7 @@ function fbr(path) { return _db.ref(path); }
 
 function initFirebase() {
   if (typeof firebase === 'undefined') {
-    console.warn('[FB] SDK missing — demo mode only');
+    console.warn('[FB] SDK missing');
     return;
   }
   try {
@@ -99,20 +98,18 @@ function _setupRoomListeners() {
 
   const roomRef = fbr(`rooms/${roomKeyword}`);
 
-  const statusUnsub = roomRef.child('status').on('value', snap => {
-    const st = snap.val();
-    if (st === 'playing') _startClientGame();
+  const statusFn = roomRef.child('status').on('value', snap => {
+    if (snap.val() === 'playing') _startClientGame();
   });
-
-  const playersUnsub = roomRef.child('players').on('value', snap => {
+  const playersFn = roomRef.child('players').on('value', snap => {
     roomPlayers = snap.val() || {};
     _updateRoomUI();
     _checkHostPromotion();
   });
 
   fbUnsubs.push(
-    () => roomRef.child('status').off('value', statusUnsub),
-    () => roomRef.child('players').off('value', playersUnsub)
+    () => roomRef.child('status').off('value', statusFn),
+    () => roomRef.child('players').off('value', playersFn)
   );
 }
 
@@ -186,8 +183,7 @@ async function hostStartGame() {
 
   const initState = {
     frame: 0, status: 'playing', winner: -1,
-    countdown: 3,
-    slots
+    countdown: 3, slots
   };
 
   await fbr(`rooms/${roomKeyword}/gameState`).set(initState);
@@ -214,18 +210,16 @@ function _startClientGame() {
   document.getElementById('game-ui').classList.add('on');
 
   if (isHost) {
-    // Host: load initial state then start driving
     fbr(`rooms/${roomKeyword}/gameState`).once('value', snap => {
       gState = snap.val();
       if (!gState) return;
-      if (!gState.slots) gState.slots = [null,null,null,null];
+      if (!gState.slots) gState.slots = [null, null, null, null];
       gameRunning = true;
       _startHostDrive();
       _listenRemoteInputs();
       _driveCountdown();
     });
   } else {
-    // Client: listen to gameState
     _listenGameState();
     _startInputSync();
     gameRunning = true;
@@ -235,16 +229,12 @@ function _startClientGame() {
 }
 
 function _driveCountdown() {
-  if (!isHost) return;
   let n = 3;
   const iv = setInterval(() => {
     if (!gState) { clearInterval(iv); return; }
     gState.countdown = n;
     n--;
-    if (n < 0) {
-      gState.countdown = 0;
-      clearInterval(iv);
-    }
+    if (n < 0) { gState.countdown = 0; clearInterval(iv); }
   }, 1000);
 }
 
@@ -256,9 +246,9 @@ function _startHostDrive() {
     if (gState.status === 'finished') {
       clearInterval(hostSyncTimer);
       hostSyncTimer = null;
-      setTimeout(showResultScreen, 2500);
+      setTimeout(() => showResultScreen(), 2500);
     }
-  }, 50); // 20 Hz
+  }, 50);
 }
 
 function _listenRemoteInputs() {
@@ -273,11 +263,11 @@ function _listenGameState() {
     const st = snap.val();
     if (!st) return;
     gState = st;
-    if (!gState.slots) gState.slots = [null,null,null,null];
+    if (!gState.slots) gState.slots = [null, null, null, null];
     if (gState.status === 'finished') {
       clearInterval(clientInputTimer);
       clientInputTimer = null;
-      setTimeout(showResultScreen, 2500);
+      setTimeout(() => showResultScreen(), 2500);
     }
   });
   fbUnsubs.push(() => ref.off('value', fn));
@@ -292,10 +282,10 @@ function _startInputSync() {
       jump: keys.jump, attack: keys.attack, special: keys.special,
       jumpSeq: inputSeq.jump, attackSeq: inputSeq.attack, specialSeq: inputSeq.special
     }).catch(() => {});
-  }, 33); // ~30 Hz
+  }, 33);
 }
 
-// ── Leave / Result ──────────────────────────────────────────────
+// ── Leave / Multiplayer Result ──────────────────────────────────
 
 async function leaveRoom() {
   _cleanupListeners();
@@ -308,15 +298,16 @@ async function leaveRoom() {
   showLobby();
 }
 
-function showResultScreen() {
+async function showResultScreen() {
   _cleanupListeners();
   gameRunning = false;
   document.getElementById('game-ui').classList.remove('on');
   document.getElementById('damage-ui').innerHTML = '';
 
   const winner = gState && gState.winner >= 0 ? (gState.slots || [])[gState.winner] : null;
-  const wEl = document.getElementById('result-winner');
-  const rEl = document.getElementById('result-rank');
+  const wEl  = document.getElementById('result-winner');
+  const rEl  = document.getElementById('result-rank');
+  const subEl = document.getElementById('result-sub');
 
   if (winner) {
     wEl.textContent = `🏆 ${winner.nick} WIN!`;
@@ -338,7 +329,16 @@ function showResultScreen() {
     }).join('　');
   }
 
-  // Clean up Firebase room
+  // Save win and show total
+  subEl.textContent = '';
+  if (winner && _db && isHost) {
+    try {
+      const totalWins = await saveWin(winner.nick);
+      subEl.textContent = `通算 ${totalWins} 勝!`;
+      subEl.style.color = SLOT_COLORS[winner.slot] || '#fff';
+    } catch (_) {}
+  }
+
   if (_db && isHost && roomKeyword) {
     setTimeout(() => fbr(`rooms/${roomKeyword}`).remove().catch(() => {}), 5000);
   }
@@ -346,9 +346,118 @@ function showResultScreen() {
   showScreen('result');
 }
 
+// ── Solo Result ─────────────────────────────────────────────────
+
+function showSoloResultScreen() {
+  gameRunning = false;
+  document.getElementById('game-ui').classList.remove('on');
+  document.getElementById('damage-ui').innerHTML = '';
+
+  const wEl  = document.getElementById('result-winner');
+  const rEl  = document.getElementById('result-rank');
+  const subEl = document.getElementById('result-sub');
+
+  wEl.textContent = soloScore.toLocaleString() + ' PT';
+  wEl.style.color = '#ffcc44';
+  rEl.innerHTML = `Wave ${soloWave} 到達 　KO × ${soloKOs}`;
+
+  const secs = Math.floor(soloFrames / 60);
+  const mins = Math.floor(secs / 60);
+  const ss   = secs % 60;
+  subEl.textContent = `生存時間 ${mins}:${ss.toString().padStart(2, '0')}`;
+  subEl.style.color = '#aaa';
+
+  if (_db && myNick) {
+    saveSoloScore(myNick, soloScore).then(isNew => {
+      if (isNew) subEl.innerHTML += ' 　<span style="color:#44dd66">NEW RECORD!</span>';
+    });
+  }
+
+  showScreen('result');
+}
+
+// ── Leaderboard / Wins ──────────────────────────────────────────
+
+async function saveSoloScore(nick, score) {
+  if (!_db) return false;
+  const key = nick.replace(/[.#$\[\]/]/g, '_');
+  const ref = fbr('leaderboard/solo/' + key);
+  const snap = await ref.once('value');
+  const current = snap.val();
+  if (!current || current.score < score) {
+    await ref.set({ nick, score, ts: firebase.database.ServerValue.TIMESTAMP });
+    return true;
+  }
+  return false;
+}
+
+async function loadSoloLeaderboard(cb) {
+  if (!_db) { cb([]); return; }
+  try {
+    const snap = await fbr('leaderboard/solo')
+      .orderByChild('score').limitToLast(LB_SIZE).once('value');
+    const data = snap.val() || {};
+    const list = Object.values(data).sort((a, b) => b.score - a.score);
+    soloLeaderboard = list;
+    cb(list);
+  } catch (e) {
+    cb([]);
+  }
+}
+
+async function saveWin(nick) {
+  if (!_db || !nick) return 1;
+  const key = nick.replace(/[.#$\[\]/]/g, '_');
+  const ref = fbr('leaderboard/wins/' + key);
+  const snap = await ref.once('value');
+  const current = snap.val();
+  const wins = (current ? (current.wins || 0) : 0) + 1;
+  await ref.set({ nick, wins, ts: firebase.database.ServerValue.TIMESTAMP });
+  return wins;
+}
+
+// ── Solo Screen ─────────────────────────────────────────────────
+
+function showSoloScreen() {
+  showScreen('solo');
+  buildCharSelect('solo-char-row');
+  document.getElementById('solo-nick').value = myNick || '';
+  document.getElementById('solo-msg').textContent = '';
+  const lbEl = document.getElementById('solo-leaderboard');
+  lbEl.innerHTML = '<div class="ok-msg">読み込み中...</div>';
+  loadSoloLeaderboard(list => {
+    if (!list.length) {
+      lbEl.innerHTML = '<div class="ok-msg" style="padding:8px">まだ記録なし</div>';
+      return;
+    }
+    lbEl.innerHTML = list.map((s, i) => {
+      const medals = ['🥇','🥈','🥉'];
+      const rank = medals[i] || (i + 1) + '.';
+      return `<div class="lb-row">
+        <span class="lb-rank">${rank}</span>
+        <span class="lb-nick">${s.nick}</span>
+        <span class="lb-score">${s.score.toLocaleString()}</span>
+      </div>`;
+    }).join('');
+  });
+}
+
+function beginSoloGame() {
+  const nick = document.getElementById('solo-nick').value.trim();
+  if (!nick) {
+    document.getElementById('solo-msg').textContent = 'ニックネームを入力してください';
+    return;
+  }
+  myNick = nick;
+  myChar = charSelectIdx;
+  startSoloGame();
+}
+
+// ── Cleanup ─────────────────────────────────────────────────────
+
 function _cleanupListeners() {
   fbUnsubs.forEach(fn => { try { fn(); } catch (_) {} });
   fbUnsubs = [];
-  if (hostSyncTimer)  { clearInterval(hostSyncTimer);  hostSyncTimer  = null; }
+  if (hostSyncTimer)    { clearInterval(hostSyncTimer);    hostSyncTimer    = null; }
   if (clientInputTimer) { clearInterval(clientInputTimer); clientInputTimer = null; }
 }

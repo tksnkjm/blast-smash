@@ -70,6 +70,10 @@ function gameLoop(ts) {
 
   if (currentScreen === 'game' && gameRunning) {
     if (isHost && gState) updateHostGameState();
+    if (soloMode && gState && gState.status === 'finished' && !soloGameEnded) {
+      soloGameEnded = true;
+      setTimeout(showSoloResultScreen, 2000);
+    }
     renderGame();
     updateDamageUI();
   } else {
@@ -84,6 +88,34 @@ function gameLoop(ts) {
 function updateHostGameState() {
   if (!gState || gState.status !== 'playing') return;
   gState.frame = (gState.frame || 0) + 1;
+
+  if (soloMode) {
+    soloFrames++;
+    soloScore = soloKOs * SOLO_KO_SCORE + Math.floor(soloFrames / 60) * SOLO_TIME_RATE;
+
+    // Wave advancement (up to 3 bots)
+    const targetWave = Math.min(Math.floor(soloFrames / WAVE_INTERVAL) + 1, 3);
+    if (targetWave > soloWave) {
+      soloWave = targetWave;
+      if (!gState.slots[soloWave]) {
+        gState.slots[soloWave] = _makeBotState(soloWave);
+      }
+    }
+
+    // Bot respawn after KO
+    for (let i = 1; i <= soloWave; i++) {
+      const bot = gState.slots[i];
+      if (bot && bot.eliminated) {
+        bot.respawnTimer = (bot.respawnTimer || 0) + 1;
+        if (bot.respawnTimer >= BOT_RESPAWN) _soloRespawnBot(bot);
+      }
+    }
+
+    // Run bot AI
+    for (let i = 1; i <= 3; i++) {
+      if (gState.slots[i] && !gState.slots[i].eliminated) updateBotAI(i);
+    }
+  }
 
   for (let i = 0; i < 4; i++) {
     const p = gState.slots[i];
@@ -110,6 +142,56 @@ function getInputForPlayer(p) {
   return remoteInputs[p.id] || {};
 }
 
+// ── Bot AI ──────────────────────────────────────────────────────
+
+function updateBotAI(botSlot) {
+  const bot = gState.slots[botSlot];
+  if (!bot || bot.eliminated || bot.hurtTimer > 0) return;
+
+  const target = gState.slots[0];
+  if (!target || target.eliminated) return;
+
+  const aggression = Math.min(0.35 + soloWave * 0.22, 0.95);
+  const dx = target.x - bot.x;
+  const dy = target.y - bot.y;
+  const adx = Math.abs(dx);
+  const ady = Math.abs(dy);
+
+  const seqRef = prevRemoteSeq[bot.id] || {};
+  const inp = {
+    left: false, right: false,
+    jumpSeq:    seqRef.jumpSeq    || 0,
+    attackSeq:  seqRef.attackSeq  || 0,
+    specialSeq: seqRef.specialSeq || 0,
+  };
+
+  // Edge avoidance (priority)
+  if (bot.x < 115) {
+    inp.right = true;
+  } else if (bot.x > CANVAS_W - 115) {
+    inp.left = true;
+  } else if (adx > 40) {
+    inp.right = dx > 0;
+    inp.left  = dx < 0;
+  }
+
+  // Jump to reach higher targets or unstick
+  if (bot.onGround) {
+    if (dy < -55 && Math.random() < 0.028 * aggression) inp.jumpSeq++;
+    else if (Math.random() < 0.005) inp.jumpSeq++;
+  }
+
+  // Attack when close
+  if (adx < 78 && ady < 58) {
+    if (Math.random() < 0.055 * aggression) inp.attackSeq++;
+    if (Math.random() < 0.022 * aggression) inp.specialSeq++;
+  }
+
+  remoteInputs[bot.id] = inp;
+}
+
+// ── Input Processing ────────────────────────────────────────────
+
 function applyInput(p, inp) {
   if (!inp) return;
   const ch = CHARS[p.charIndex] || CHARS[0];
@@ -133,10 +215,9 @@ function applyInput(p, inp) {
   if (p.vx > 0.3) p.facing = 1;
   if (p.vx < -0.3) p.facing = -1;
 
-  // Jump via seq comparison
-  const prevJ  = (prevRemoteSeq[p.id] || {}).jumpSeq    || 0;
-  const prevA  = (prevRemoteSeq[p.id] || {}).attackSeq  || 0;
-  const prevS  = (prevRemoteSeq[p.id] || {}).specialSeq || 0;
+  const prevJ = (prevRemoteSeq[p.id] || {}).jumpSeq    || 0;
+  const prevA = (prevRemoteSeq[p.id] || {}).attackSeq  || 0;
+  const prevS = (prevRemoteSeq[p.id] || {}).specialSeq || 0;
   const jumpPressed    = (inp.jumpSeq    || 0) > prevJ;
   const attackPressed  = (inp.attackSeq  || 0) > prevA;
   const specialPressed = (inp.specialSeq || 0) > prevS;
@@ -157,7 +238,6 @@ function applyInput(p, inp) {
   if (!inAttack && attackPressed)  { startAttack(p, false); inAttack = true; }
   if (!inAttack && specialPressed) { startAttack(p, true);  inAttack = true; }
 
-  // Advance attack frames
   if (inAttack) {
     p.actionFrame++;
     const total = (p.action === 'special')
@@ -173,7 +253,6 @@ function applyInput(p, inp) {
     p.action = p.onGround ? (Math.abs(p.vx) > 0.5 ? 'walk' : 'idle') : 'jump';
   }
 
-  // Save seqs for next frame edge detection
   if (!prevRemoteSeq[p.id]) prevRemoteSeq[p.id] = {};
   prevRemoteSeq[p.id].jumpSeq    = inp.jumpSeq    || 0;
   prevRemoteSeq[p.id].attackSeq  = inp.attackSeq  || 0;
@@ -215,8 +294,17 @@ function checkBlastZones(p) {
     koEffect = { slot: p.slot, timer: 55, color: SLOT_COLORS[p.slot] };
     sfx.ko();
     if (p.stocks <= 0) {
-      p.eliminated = true;
-      p.stocks = 0;
+      if (soloMode && p.slot !== 0) {
+        // Bot KO'd: count score, start respawn timer
+        soloKOs++;
+        soloScore = soloKOs * SOLO_KO_SCORE + Math.floor(soloFrames / 60) * SOLO_TIME_RATE;
+        p.eliminated = true;
+        p.stocks = 0;
+        p.respawnTimer = 0;
+      } else {
+        p.eliminated = true;
+        p.stocks = 0;
+      }
     } else {
       respawnPlayer(p);
     }
@@ -233,6 +321,21 @@ function respawnPlayer(p) {
   p.action = 'idle';
   p.actionFrame = 0;
   p.hasHit = {};
+}
+
+function _soloRespawnBot(bot) {
+  const sp = SPAWNS[bot.slot] || [CANVAS_W / 2, 200];
+  bot.x = sp[0]; bot.y = sp[1] - 60;
+  bot.vx = 0; bot.vy = 0;
+  bot.damage = 0;
+  bot.stocks = MAX_STOCKS;
+  bot.eliminated = false;
+  bot.hurtTimer = RESPAWN_INV;
+  bot.onGround = false;
+  bot.action = 'idle';
+  bot.actionFrame = 0;
+  bot.hasHit = {};
+  bot.respawnTimer = 0;
 }
 
 function checkHits() {
@@ -286,11 +389,64 @@ function applyHit(a, d, isSpec) {
 }
 
 function checkWin() {
+  if (soloMode) {
+    const player = gState.slots[0];
+    if (player && player.eliminated) {
+      gState.status = 'finished';
+      gState.winner = -1;
+    }
+    return;
+  }
   const alive = gState.slots.filter(p => p && !p.eliminated);
   if (alive.length <= 1 && gState.slots.some(p => p)) {
     gState.status = 'finished';
     gState.winner = alive.length === 1 ? alive[0].slot : -1;
   }
+}
+
+// ── Solo Mode Setup ─────────────────────────────────────────────
+
+function startSoloGame() {
+  soloMode = true;
+  soloScore = 0;
+  soloWave = 1;
+  soloKOs = 0;
+  soloFrames = 0;
+  soloGameEnded = false;
+  isHost = true;
+  gameRunning = true;
+
+  const slots = [null, null, null, null];
+  slots[0] = {
+    id: myId, nick: myNick || 'PLAYER', slot: 0, charIndex: myChar,
+    x: SPAWNS[0][0], y: SPAWNS[0][1],
+    vx: 0, vy: 0, damage: 0, stocks: MAX_STOCKS, facing: 1,
+    onGround: false, canDJ: false, action: 'idle', actionFrame: 0,
+    hurtTimer: 0, hasHit: {}, eliminated: false
+  };
+  slots[1] = _makeBotState(1);
+
+  gState = { frame: 0, status: 'playing', winner: -1, countdown: 3, slots };
+
+  showScreen('game');
+  document.getElementById('game-ui').classList.add('on');
+  sfx.start();
+}
+
+function _makeBotState(slot) {
+  const sp = SPAWNS[slot] || [CANVAS_W / 2, 200];
+  const botChars = [0, 2, 3, 1];
+  const botNicks = ['BOT-A', 'BOT-B', 'BOT-C'];
+  return {
+    id: 'bot_' + slot,
+    nick: botNicks[slot - 1] || 'BOT',
+    slot, charIndex: botChars[slot] || 0,
+    x: sp[0], y: sp[1], vx: 0, vy: 0,
+    damage: 0, stocks: MAX_STOCKS, facing: -1,
+    onGround: false, canDJ: false, action: 'idle', actionFrame: 0,
+    hurtTimer: 0, hasHit: {}, eliminated: false,
+    isBot: true, respawnTimer: 0
+  };
 }
 
 // ── UI Helpers ──────────────────────────────────────────────────
@@ -309,14 +465,16 @@ function showScreen(name) {
 
 function showLobby() {
   showScreen('lobby');
-  buildCharSelect();
+  buildCharSelect('char-select-row');
   document.getElementById('lobby-msg').textContent = '';
 }
 
 function showHowTo() { showScreen('howto'); }
 
-function buildCharSelect() {
-  const row = document.getElementById('char-select-row');
+function buildCharSelect(rowId) {
+  charSelectRowId = rowId || 'char-select-row';
+  const row = document.getElementById(charSelectRowId);
+  if (!row) return;
   row.innerHTML = CHARS.map((ch, i) => {
     const sel = i === charSelectIdx;
     return `<div class="char-opt ${sel ? 'sel' : ''}"
@@ -331,7 +489,7 @@ function buildCharSelect() {
 function selectChar(i) {
   charSelectIdx = i;
   myChar = i;
-  buildCharSelect();
+  buildCharSelect(charSelectRowId);
   sfx.select();
   if (roomKeyword) fbUpdateMyChar(i);
 }
@@ -349,9 +507,16 @@ function checkOrientation() {
 }
 
 function returnToLobby() {
+  const wasSolo = soloMode;
   gState = null;
   koEffect = null;
-  showLobby();
+  soloMode = false;
+  soloGameEnded = false;
+  soloScore = 0;
+  soloWave = 1;
+  soloKOs = 0;
+  soloFrames = 0;
+  if (wasSolo) showSoloScreen(); else showLobby();
 }
 
 // ── Init ────────────────────────────────────────────────────────

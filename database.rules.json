@@ -3,12 +3,16 @@
     "rooms": {
       "$keyword": {
         ".read": true,
-        ".write": true,
-        "players": {
-          "$playerId": {
-            ".write": "auth == null || auth.uid == $playerId || !data.exists()"
-          }
-        }
+        ".write": true
+      }
+    },
+    "leaderboard": {
+      ".read": true,
+      "solo": {
+        "$nick": { ".write": true }
+      },
+      "wins": {
+        "$nick": { ".write": true }
       }
     }
   }

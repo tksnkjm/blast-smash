@@ -204,6 +204,33 @@ function updateDamageUI() {
   const el = document.getElementById('damage-ui');
   if (!gState || !gameRunning || !gState.slots) { el.innerHTML = ''; return; }
 
+  if (soloMode) {
+    const player = gState.slots[0];
+    const secs = Math.floor(soloFrames / 60);
+    const mins = Math.floor(secs / 60);
+    const ss = secs % 60;
+    const dc = !player ? '#fff' : player.damage < 60 ? '#fff' : player.damage < 120 ? '#ffaa00' : '#ff4400';
+    const stocks = player
+      ? '●'.repeat(Math.max(0, player.stocks)) + '○'.repeat(Math.max(0, MAX_STOCKS - player.stocks))
+      : '';
+    el.innerHTML = `<div class="dmg-card me" style="${player && player.eliminated ? 'opacity:0.3;' : ''}">
+        <div class="dmg-nick">${player ? (player.nick || 'PLAYER').slice(0, 6) : ''}</div>
+        <div class="dmg-pct" style="color:${dc}">${player ? player.damage : 0}%</div>
+        <div class="dmg-stocks">${stocks}</div>
+      </div>
+      <div class="dmg-card" style="min-width:80px">
+        <div class="dmg-nick">SCORE</div>
+        <div class="dmg-pct" style="color:#ffcc44;font-size:15px">${soloScore.toLocaleString()}</div>
+        <div class="dmg-stocks" style="color:#aaa">Wave ${soloWave}</div>
+      </div>
+      <div class="dmg-card">
+        <div class="dmg-nick">TIME</div>
+        <div class="dmg-pct" style="font-size:15px">${mins}:${ss.toString().padStart(2, '0')}</div>
+        <div class="dmg-stocks" style="color:#aaa">KO×${soloKOs}</div>
+      </div>`;
+    return;
+  }
+
   let html = '';
   for (let i = 0; i < 4; i++) {
     const p = gState.slots[i];

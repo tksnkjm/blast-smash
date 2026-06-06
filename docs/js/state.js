@@ -46,6 +46,16 @@ let koEffect = null;
 // Char select
 let charSelectIdx = 0;
 
+// Solo mode
+let soloMode = false;
+let soloScore = 0;
+let soloWave = 1;
+let soloKOs = 0;
+let soloFrames = 0;
+let soloGameEnded = false;
+let soloLeaderboard = [];
+let charSelectRowId = 'char-select-row';
+
 // Stars for background (computed once)
 const STARS = Array.from({ length: 70 }, (_, i) => ({
   x: (i * 137.508) % CANVAS_W,
